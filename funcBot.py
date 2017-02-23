@@ -9,6 +9,7 @@ import time
 
 import pymysql
 
+import sys
 import funcWeather as weather
 import info
 
@@ -123,18 +124,59 @@ def get_updates():
     js = get_json_from_url(url)
     return js
 
-def get_last_chat_id_and_text(updates):
-    u"""get_last_chat_id_and_text
+def set_last_chat_id_and_text(updates):
+    u"""set_last_chat_id_and_text: get last msg from url and insert database
     updates:    ()  
-
-    return :    (text,chat_id)
     """
-    num_updates = len(updates["result"])
-    last_update = num_updates -1
-    text = updates["result"][last_update]["message"]["text"]
-    chat_id = updates["result"][last_update]["message"]["chat"]["id"]
+    (cur,conn) = conn_db()
+    sql_select = "select max(update_id) as max_num from cmd_history where run_chk ='N'"
+    cur.execute(sql_select)
+    max_update_id = cur.fetchone()[0]
+    if not max_update_id :
+        sql_select = "select max(update_id) as max_num from cmd_history where run_chk ='Y'"
+        cur.execute(sql_select)
+        max_update_id = cur.fetchone()[0]+1
+    try:
+        num_updates = len(updates["result"])
+        loop_end = num_updates-1
+        last_update_id = updates["result"][loop_end]["update_id"]
+        loop_start = loop_end-(last_update_id-max_update_id)
+        #print loop_start, loop_end
+        #print updates["result"][loop_end]
 
-    return (text,chat_id)
+        while loop_start<num_updates:
+            chat_id     = updates["result"][loop_start]["message"]["chat"]["id"]
+            update_id   = updates["result"][loop_start]["update_id"]
+            msg_id      = updates["result"][loop_start]["message"]["message_id"]
+            msg_text    = updates["result"][loop_start]["message"]["text"]
+
+            loop_start += 1
+            try :
+                sql_insert = "insert into cmd_history(update_id, chat_id, msg_id, msg_text ) values (%s, %s, %s, %s)"
+                cur.execute(sql_insert, (update_id, chat_id, msg_id, msg_text))
+            except :
+                time.sleep(1)
+                #print "Unexpected error:", sys.exc_info()[0]
+            time.sleep(1)
+       
+    finally:
+        disconn_db(conn)
+
+def get_cmd_history():
+    (cur,conn) = conn_db()
+    sql_select = "select chat_id, msg_text, update_id from cmd_history where run_chk = 'N'"
+    cur.execute(sql_select)
+    rows = cur.fetchall()
+
+    for i in rows:
+
+        process_cmds(i[0],i[1])
+        try:
+            sql_update = "update cmd_history set run_chk ='Y' where update_id = %s"
+            cur.execute(sql_update,(i[2],))
+        finally:
+            conn.commit()
+
 
 def send_msg(chat_id, text, reply_to=None, no_preview=False, keyboard=None):
     u"""
@@ -171,6 +213,7 @@ def broadcast(text):
     """
     for chat in get_enabled_user():
         send_msg(chat[0],text)
+        time.sleep(2)
 
 def cmd_start(chat_id):
     u"""cmd_start: chat start
@@ -197,22 +240,18 @@ def process_cmds(chat_id, text):
     """
     if(not text):
         return
-    if CMD_START == text:
+    if CMD_START    == text:
         cmd_start(chat_id)
-    if CMD_STOP == text:
+    if CMD_STOP     == text:
         cmd_stop(chat_id)
-    if CMD_WEATHER==text:
+    if CMD_WEATHER  ==text:
         cmd_weather(chat_id)
 
     return
 
 def main():
-    last_textchat = (None, None)
     while True:
-        text, chat = get_last_chat_id_and_text(get_updates())
-        if (text, chat) != last_textchat:
-            process_cmds(chat, text)
-            last_textchat = (text,chat)
+        get_cmd_history()       
         time.sleep(0.5)
 
 
