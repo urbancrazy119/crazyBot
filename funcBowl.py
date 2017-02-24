@@ -9,11 +9,17 @@ def set_score(chat_id, text):
     try:
         sql_insert = "insert into bowl_score(chat_id, bowl_seq, bowl_score) values (%s, %s, %s)"
         for i in score_list:
+            # numbering check
+            try:
+                score = int(i)
+            except UnicodeEncodeError:
+                continue
             # select max value
             sql_select = "select ifnull(max(bowl_seq),0) from bowl_score where date(bowl_date) = date_format(now(),'%Y-%m-%d') and chat_id = "+"%d"%(chat_id)
             cur.execute(sql_select)
             max_seq = cur.fetchone()[0]
             # insert
+            
             cur.execute(sql_insert,(chat_id, max_seq+1, i))
         # today average
         sql_avg = "select ifnull(avg(bowl_score),0) from bowl_score where date(bowl_date) = date_format(now(), '%Y-%m-%d') and chat_id = "+"%d"%(chat_id)

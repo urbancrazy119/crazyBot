@@ -261,17 +261,19 @@ def process_cmds(chat_id, text):
     print cmd_list
     if CMD_START    == cmd_list[0]:
         cmd_start(chat_id)
-    if CMD_STOP     == cmd_list[0]:
+    elif CMD_STOP     == cmd_list[0]:
         cmd_stop(chat_id)
-    if CMD_HELP     == cmd_list[0]:
+    elif CMD_HELP     == cmd_list[0]:
         cmd_help(chat_id)
-    if CMD_WEATHER  == cmd_list[0]:
+    elif CMD_WEATHER  == cmd_list[0]:
         cmd_weather(chat_id)
-    if CMD_BOWL_IN  == cmd_list[0]:
+    elif CMD_BOWL_IN  == cmd_list[0]:
         cmd_list.pop(0)
         cmd_bowl_input(chat_id, cmd_list)
-    if CMD_BOWL_OU  == cmd_list[0]:
+    elif CMD_BOWL_OU  == cmd_list[0]:
         cmd_bowl_output(chat_id)
+    else:
+        cmd_help(chat_id)
 
     return
 
