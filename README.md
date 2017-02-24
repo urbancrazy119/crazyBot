@@ -2,6 +2,7 @@
 # Basic
 1. need to get Token for working Telegram bot
 2. run run.py
+3. run run_received.py
 
 # Function
 1. /Start	-	If you type /Start, you can get broadcast from admin
