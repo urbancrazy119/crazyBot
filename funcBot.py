@@ -3,15 +3,17 @@ import urllib
 import urllib2
 import json
 import logging
-#import re
+import re
 import requests
 import time
 
-import pymysql
+#import pymysql
+import database as db
 
 import sys
-import funcWeather as weather
 import info
+import funcWeather as weather
+import funcBowl as bowl
 
 # important information
 TOKEN = info.TOKEN
@@ -22,12 +24,17 @@ CMD_START   = '/start'
 CMD_STOP    = '/stop'
 CMD_HELP    = '/help'
 CMD_WEATHER = '날씨'
+CMD_BOWL_IN = '볼링'
+CMD_BOWL_OU = '점수'
 
 # usage for help
 USAGE = u"""[사용법]
-/start  - 봇 시작
-/stop   - 봇 종료
-/help   - 도움말
+/start      - 봇 시작
+/stop       - 봇 종료
+/help       - 도움말
+날씨        - 오늘의 날씨
+볼링 점수   - 볼링점수 입력
+점수        - 볼링점수 확인(최근 3일 및 총 에버)
 """
 MSG_START   = u'봇 시작'
 MSG_STOP    = u'봇 종료'
@@ -39,28 +46,12 @@ CUSTOM_KEYBOARD = [
         [CMD_HELP],
     ]
 
-def conn_db():
-    u"""conn_db:    DB connect
-
-    return :    (cur, conn)
-    """
-    conn = pymysql.connect(host='localhost', user=info.USER, password=info.PW, db=info.DB, charset='utf8')
-    cur = conn.cursor()
-
-    return (cur, conn)
-
-def disconn_db(conn):
-    u"""disconn_db: DB disconnect
-    """
-    conn.commit()
-    conn.close()
-
 def set_enabled(chat_id, enabled):
     u"""set_enabled: bot status update
     chat_id:    (integer)   chat ID
     enbaled:    (boolean)   status (0 = disabled, 1 = enabled)
     """
-    (cur,conn)=conn_db()
+    (cur,conn)=db.conn_db()
     try:
         sql_select = "select count(*) from user_status where chat_id=%s"
         cur.execute(sql_select, (chat_id,))
@@ -75,7 +66,7 @@ def set_enabled(chat_id, enabled):
             cur.execute(sql_insert, (chat_id, enabled,))
 
     finally:
-        disconn_db(conn)
+        db.disconn_db(conn)
 
 def get_enabled(chat_id):
     u"""get_enabled: return status of chat_id
@@ -83,19 +74,19 @@ def get_enabled(chat_id):
 
     return :    (boolean)   status
     """
-    (cur, conn) = conn_db()
+    (cur, conn) = db.conn_db()
     sql_select  = "select chat_status from user_status where chat_id=%s"
     cur.execute(sql_select, (chat_id,))
     res = cur.fetchone()
 
-    disconn_db(conn)
+    db.disconn_db(conn)
     return res
 
 def get_enabled_user():
     u"""get_enabled_user
     return :    (list)      Chat ID list
     """
-    (cur,conn) = conn_db()
+    (cur,conn) = db.conn_db()
     sql_select = "select chat_id from user_status where chat_status=1"
     cur.execute(sql_select)
     rows = cur.fetchall()
@@ -128,7 +119,7 @@ def set_last_chat_id_and_text(updates):
     u"""set_last_chat_id_and_text: get last msg from url and insert database
     updates:    ()  
     """
-    (cur,conn) = conn_db()
+    (cur,conn) = db.conn_db()
     sql_select = "select max(update_id) as max_num from cmd_history where run_chk ='N'"
     cur.execute(sql_select)
     max_update_id = cur.fetchone()[0]
@@ -160,10 +151,12 @@ def set_last_chat_id_and_text(updates):
             time.sleep(1)
        
     finally:
-        disconn_db(conn)
+        db.disconn_db(conn)
 
 def get_cmd_history():
-    (cur,conn) = conn_db()
+    u"""get_cmd_history:    get cmd list that run_chk = 'N'
+    """
+    (cur,conn) = db.conn_db()
     sql_select = "select chat_id, msg_text, update_id from cmd_history where run_chk = 'N'"
     cur.execute(sql_select)
     rows = cur.fetchall()
@@ -186,6 +179,8 @@ def send_msg(chat_id, text, reply_to=None, no_preview=False, keyboard=None):
     no_preview: (boolean)   URL preview on/off
     kyboard:    (list)      custom keyboard
     """
+    if chat_id == 319019079:
+        text+='\n현정아 사랑해'
     params ={
             'chat_id':str(chat_id),
             'text':text.encode('utf-8')
@@ -229,8 +224,30 @@ def cmd_stop(chat_id):
     set_enabled(chat_id,False)
     send_msg(chat_id,'Stop')
 
+def cmd_help(chat_id):
+    u"""cmd_help: bot Help Menu
+    chat_id:    (integer)   Chat ID
+    """
+    send_msg(chat_id, USAGE)
+
 def cmd_weather(chat_id):
+    u"""cmd_weather: weather cast
+    chat_id:    (integer)   Chat ID
+    """
     msg = weather.make_weather_msg()
+    send_msg(chat_id,msg)
+
+def cmd_bowl_input(chat_id, text):
+    u"""cmd_bowl_input: insert bowl score using chat_id
+    chat_id :   (integer)   Chat ID
+    text    :   (String)    Score
+    """
+    msg = bowl.set_score(chat_id, text)
+    msg = '금일의 에버는 %d'%(msg)
+    send_msg(chat_id,msg)
+
+def cmd_bowl_output(chat_id):
+    msg = bowl.get_score(chat_id)
     send_msg(chat_id,msg)
 
 def process_cmds(chat_id, text):
@@ -240,12 +257,21 @@ def process_cmds(chat_id, text):
     """
     if(not text):
         return
-    if CMD_START    == text:
+    cmd_list = re.split(r'[\s]',text)
+    print cmd_list
+    if CMD_START    == cmd_list[0]:
         cmd_start(chat_id)
-    if CMD_STOP     == text:
+    if CMD_STOP     == cmd_list[0]:
         cmd_stop(chat_id)
-    if CMD_WEATHER  ==text:
+    if CMD_HELP     == cmd_list[0]:
+        cmd_help(chat_id)
+    if CMD_WEATHER  == cmd_list[0]:
         cmd_weather(chat_id)
+    if CMD_BOWL_IN  == cmd_list[0]:
+        cmd_list.pop(0)
+        cmd_bowl_input(chat_id, cmd_list)
+    if CMD_BOWL_OU  == cmd_list[0]:
+        cmd_bowl_output(chat_id)
 
     return
 
