@@ -12,7 +12,13 @@ def set_score(chat_id, text):
             # numbering check
             try:
                 score = int(i)
+                if score<0:
+                    continue
             except UnicodeEncodeError:
+                continue
+            except ValueError:
+                continue
+            except:
                 continue
             # select max value
             sql_select = "select ifnull(max(bowl_seq),0) from bowl_score where date(bowl_date) = date_format(now(),'%Y-%m-%d') and chat_id = "+"%d"%(chat_id)
