@@ -3,6 +3,8 @@
 1. need to get Token for working Telegram bot
 2. run run.py
 3. run run_received.py
+4. cron weather.sh
+5. cron jonNews.sh
 
 # Function
 1. /Start	-	If you type /Start, you can get broadcast from admin
@@ -14,3 +16,5 @@
 # History
 1. 20170223	-	Init
 2. 20170224 -	Added funcBowl.py
+3. 20170228	-	Added funcJob.py
+				-> for News of job

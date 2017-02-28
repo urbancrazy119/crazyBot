@@ -12,6 +12,7 @@ import database as db
 
 import sys
 import info
+import mappingList as m
 import funcWeather as weather
 import funcBowl as bowl
 
@@ -29,12 +30,14 @@ CMD_BOWL_OU = '점수'
 
 # usage for help
 USAGE = u"""[사용법]
-/start      - 봇 시작
-/stop       - 봇 종료
+/start      - 알림 시작
+/stop       - 알림 종료
 /help       - 도움말
 날씨        - 오늘의 날씨
 볼링 점수   - 볼링점수 입력
 점수        - 볼링점수 확인(최근 3일 및 총 에버)
+
+알림 : 매일 아침 5:30 날씨를 알려드립니다.
 """
 MSG_START   = u'봇 시작'
 MSG_STOP    = u'봇 종료'
@@ -92,6 +95,13 @@ def get_enabled_user():
     rows = cur.fetchall()
     return rows
 
+def get_module_user(module):
+    (cur,conn) = db.conn_db()
+    sql_select = "select chat_id from user_status where %s_status=1"%module
+    cur.execute(sql_select)
+    rows = cur.fetchall()
+    return rows
+
 def get_url(url):
     u"""get_url:    get content from url
     url:    (string)    URL
@@ -132,8 +142,9 @@ def set_last_chat_id_and_text(updates):
         loop_end = num_updates-1
         last_update_id = updates["result"][loop_end]["update_id"]
         loop_start = loop_end-(last_update_id-max_update_id)
-        #print loop_start, loop_end
-        #print updates["result"][loop_end]
+
+        print loop_start, loop_end
+        print updates["result"][loop_end]
 
         while loop_start<num_updates:
             chat_id     = updates["result"][loop_start]["message"]["chat"]["id"]
@@ -146,9 +157,9 @@ def set_last_chat_id_and_text(updates):
                 sql_insert = "insert into cmd_history(update_id, chat_id, msg_id, msg_text ) values (%s, %s, %s, %s)"
                 cur.execute(sql_insert, (update_id, chat_id, msg_id, msg_text))
             except :
-                time.sleep(1)
+                time.sleep(0.5)
                 #print "Unexpected error:", sys.exc_info()[0]
-            time.sleep(1)
+            time.sleep(0.5)
        
     finally:
         db.disconn_db(conn)
@@ -208,21 +219,26 @@ def broadcast(text):
     """
     for chat in get_enabled_user():
         send_msg(chat[0],text)
-        time.sleep(2)
+        time.sleep(0.5)
+
+def broadcast_option(module,text):
+    for chat in get_module_user(module):
+        send_msg(chat[0],text)
+        time.sleep(0.5)
 
 def cmd_start(chat_id):
     u"""cmd_start: chat start
     chat_id:    (integer)   Chat ID
     """
     set_enabled(chat_id,True)
-    send_msg(chat_id,'Start')
+    send_msg(chat_id,'BroadCast Start')
 
 def cmd_stop(chat_id):
     u"""cmd_stop: chat stop
     chat_id:    (integer)   Chat ID
     """
     set_enabled(chat_id,False)
-    send_msg(chat_id,'Stop')
+    send_msg(chat_id,'BroadCast Stop')
 
 def cmd_help(chat_id):
     u"""cmd_help: bot Help Menu
@@ -230,9 +246,10 @@ def cmd_help(chat_id):
     """
     send_msg(chat_id, USAGE)
 
-def cmd_weather(chat_id):
+def cmd_weather(chat_id, city='Seoul'):
     u"""cmd_weather: weather cast
-    chat_id:    (integer)   Chat ID
+    chat_id :   (integer)   Chat ID
+    city    :   (String)    City Name
     """
     msg = weather.make_weather_msg()
     send_msg(chat_id,msg)
@@ -247,6 +264,9 @@ def cmd_bowl_input(chat_id, text):
     send_msg(chat_id,msg)
 
 def cmd_bowl_output(chat_id):
+    u"""cmd_bowl_ouput: show list chat_id's score
+    chat_id :   (integer)   Chat ID
+    """
     msg = bowl.get_score(chat_id)
     send_msg(chat_id,msg)
 

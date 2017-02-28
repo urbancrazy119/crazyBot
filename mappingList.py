@@ -19,6 +19,8 @@ match_weather_list = {
         , 'Clouds'  :   '구름'
         , 'Snow'    :   '눈'
         , 'Haze'    :   '안개' 
+        , 'Mist'    :   '엷은 안개'
+        , 'Fog'     :   '짙은 안개'
         }
 
 
