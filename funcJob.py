@@ -9,9 +9,10 @@ sys.setdefaultencoding('utf-8')
 
 PATH = '/usr/script/teleBot/log/'
 
+URL = 'http://cafe.naver.com/ArticleList.nhn?search.clubid=16996348&search.menuid=175&search.boardtype=L'
+
 def get_news():
     with requests.Session() as c:
-        URL = 'http://cafe.naver.com/ArticleList.nhn?search.clubid=16996348&search.menuid=175&search.boardtype=L'
         html = c.get(URL)
         soup = BeautifulSoup(html.text)
         parse = soup.find_all("form",{"name":"ArticleList"})
@@ -65,3 +66,16 @@ def get_news():
                 print res
                 return res
 
+def get_10_news():
+    with requests.Session() as c:
+        html = c.get(URL)
+        soup = BeautifulSoup(html.text)
+        parse= soup.find_all("form",{"name":"ArticleList"})
+
+        temp_cont = parse[0].find_all("a",{"class":"m-tcol-c"})
+        msg = 'o 최근 채용소식\n'
+        for index, node in enumerate(temp_cont):
+            if index%2==0:
+                msg+='- '+node.find_all(text=True)[0]+'\n'
+
+        return msg 

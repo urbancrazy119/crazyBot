@@ -34,8 +34,8 @@ def weather(city):
             }
     return res
 
-def make_weather_msg(city='Seoul'):
-    msg = '아침 날씨 안내입니다.\n\n'
+def make_weather_msg(city='all'):
+    msg = '전국 날씨 안내입니다.\n\n'
     if city == 'all':
         for l in m.match_city_list:
             val = weather(l)

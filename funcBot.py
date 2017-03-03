@@ -7,7 +7,6 @@ import re
 import requests
 import time
 
-#import pymysql
 import database as db
 
 import sys
@@ -15,6 +14,7 @@ import info
 import mappingList as m
 import funcWeather as weather
 import funcBowl as bowl
+import funcJob as job
 
 # important information
 TOKEN = info.TOKEN
@@ -22,22 +22,29 @@ BASE_URL = 'https://api.telegram.org/bot'+TOKEN+'/'
 
 # command
 CMD_START   = '/start'
+CMD_JOB_STA = '/jobstart'
 CMD_STOP    = '/stop'
+CMD_JOB_STO = '/jobstop'
 CMD_HELP    = '/help'
 CMD_WEATHER = '날씨'
 CMD_BOWL_IN = '볼링'
 CMD_BOWL_OU = '점수'
+CMD_JOB     = '채용'
 
 # usage for help
 USAGE = u"""[사용법]
-/start      - 알림 시작
-/stop       - 알림 종료
+/start      - 날씨 알림 시작
+/jobstart   - 채용 알림 시작
+/stop       - 날씨 알림 종료
+/jobstop    - 채용 알림 종료
 /help       - 도움말
 날씨        - 오늘의 날씨
 볼링 점수   - 볼링점수 입력
 점수        - 볼링점수 확인(최근 3일 및 총 에버)
+채용        - 최근 채용 소식 알림
 
-알림 : 매일 아침 5:30 날씨를 알려드립니다.
+날씨 알림 : 매일 아침 5:30 날씨를 알려드립니다.
+채용 알림 : 실시간 채용속보 전달
 """
 MSG_START   = u'봇 시작'
 MSG_STOP    = u'봇 종료'
@@ -68,6 +75,23 @@ def set_enabled(chat_id, enabled):
             sql_insert = "insert into user_status(chat_id, chat_status) values (%s, %s)"
             cur.execute(sql_insert, (chat_id, enabled,))
 
+    finally:
+        db.disconn_db(conn)
+
+def set_module_enabled(chat_id, module, enabled):
+    u"""set_module_enabled
+    """
+    (cur,conn)=db.conn_db()
+    try:
+        sql_select = "select count(*) from user_status where chat_id=%s"
+        cur.execute(sql_select, (chat_id,))
+        count = cur.fetchone()[0]
+        if count == 1:
+            sql_update = "update user_status set %s_status=%s where chat_id=%s"%(module,enabled,chat_id)
+            cur.execute(sql_update)
+        elif count == 0:
+            sql_insert = "insert into user_status(chat_id, %s_status) values(%s,%s)"%(module,chat_id,enabled)
+            cur.execute(sql_insert)
     finally:
         db.disconn_db(conn)
 
@@ -231,14 +255,24 @@ def cmd_start(chat_id):
     chat_id:    (integer)   Chat ID
     """
     set_enabled(chat_id,True)
-    send_msg(chat_id,'BroadCast Start')
+    send_msg(chat_id,'Weather BroadCast Start')
+
+def cmd_job_start(chat_id):
+    u"""cmd_job_start
+    """
+    set_module_enabled(chat_id,'job',True)
+    send_msg(chat_id,'Job BroadCast Start')
 
 def cmd_stop(chat_id):
     u"""cmd_stop: chat stop
     chat_id:    (integer)   Chat ID
     """
     set_enabled(chat_id,False)
-    send_msg(chat_id,'BroadCast Stop')
+    send_msg(chat_id,'Weather BroadCast Stop')
+
+def cmd_job_stop(chat_id):
+    set_module_enabled(chat_id,'job',False)
+    send_msg(chat_id,'Job BroadCast Stop')
 
 def cmd_help(chat_id):
     u"""cmd_help: bot Help Menu
@@ -270,6 +304,10 @@ def cmd_bowl_output(chat_id):
     msg = bowl.get_score(chat_id)
     send_msg(chat_id,msg)
 
+def cmd_job(chat_id):
+    msg = job.get_10_news()
+    send_msg(chat_id,msg)
+
 def process_cmds(chat_id, text):
     u"""process_cmds: switch CMD
     chat_id:    (integer)
@@ -281,8 +319,12 @@ def process_cmds(chat_id, text):
     print cmd_list
     if CMD_START    == cmd_list[0]:
         cmd_start(chat_id)
+    elif CMD_JOB_STA  == cmd_list[0]:
+        cmd_job_start(chat_id)
     elif CMD_STOP     == cmd_list[0]:
         cmd_stop(chat_id)
+    elif CMD_JOB_STO  == cmd_list[0]:
+        cmd_job_stop(chat_id)
     elif CMD_HELP     == cmd_list[0]:
         cmd_help(chat_id)
     elif CMD_WEATHER  == cmd_list[0]:
@@ -292,6 +334,8 @@ def process_cmds(chat_id, text):
         cmd_bowl_input(chat_id, cmd_list)
     elif CMD_BOWL_OU  == cmd_list[0]:
         cmd_bowl_output(chat_id)
+    elif CMD_JOB      == cmd_list[0]:
+        cmd_job(chat_id)
     else:
         cmd_help(chat_id)
 
